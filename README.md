@@ -37,9 +37,9 @@ GPT-2 applies dropout after each attention layer as well as after each MLP befor
 ### Output
 After going through the respective layers the outputs consist of:
 
-    1. `last_hidden_state`: the contextualized embedding for each token of the sentence from the last layer
+1. `last_hidden_state`: the contextualized embedding for each token of the sentence from the last layer
 
-    2. `last_token`: the last token embedding
+2. `last_token`: the last token embedding
 
 ## Acknowledgement
 
