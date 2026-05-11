@@ -27,7 +27,7 @@ The learnable token embeddings map the individual input ids into vector represen
 
 ### Transformer Layer
 <p align="center">
-  <img src="images/transformer.png" width="700">
+  <img src="images/transformer.png" width="350">
 </p>
 
 The mini-gpt2 makes use of 12 Decoder Transformer layers. These layers were defined initially in the paper Attention is All You Need. It is composed of masked multi-head attention, Resnets, MLP, and layernorm layers. 
