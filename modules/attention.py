@@ -1,7 +1,7 @@
 import torch
 
 from einops import rearrange
-from torch import nn
+from torch import nn, softmax
 
 
 class CausalSelfAttention(nn.Module):
@@ -34,7 +34,15 @@ class CausalSelfAttention(nn.Module):
   def attention(self, key, query, value, attention_mask):
 
     ### YOUR CODE HERE
-    raise NotImplementedError
+    dk = key.shape[-1]
+    score = query @ key.transpose(-2, -1) / (dk ** 0.5)
+    masked_score = score + attention_mask
+    weight = softmax(masked_score, dim=-1)
+    weight_dropped = self.dropout(weight)
+    attn_value = weight_dropped @ value
+    attn_value = rearrange(attn_value, 'b h t d -> b t (h d)')
+
+    return attn_value
 
 
   def forward(self, hidden_states, attention_mask):
