@@ -26,7 +26,9 @@ After tokenizing and converting each token to ids, GPT-2 subsequently utilizes a
 The learnable token embeddings map the individual input ids into vector representation for later use. The positional embeddings are utilized to encode the position of different words within the input. 
 
 ### Transformer Layer
-![gpt2 transformer layer](images/transformer.png)
+<p align="center">
+  <img src="images/transformer.png" width="700">
+</p>
 
 The mini-gpt2 makes use of 12 Decoder Transformer layers. These layers were defined initially in the paper Attention is All You Need. It is composed of masked multi-head attention, Resnets, MLP, and layernorm layers. 
 
@@ -34,7 +36,9 @@ GPT-2 applies dropout after each attention layer as well as after each MLP befor
 
 ### Output
 After going through the respective layers the outputs consist of:
+
     1. `last_hidden_state`: the contextualized embedding for each token of the sentence from the last layer
+
     2. `last_token`: the last token embedding
 
 ## Acknowledgement
