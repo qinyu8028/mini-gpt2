@@ -35,13 +35,16 @@ class CausalSelfAttention(nn.Module):
 
     ### YOUR CODE HERE
     dk = key.shape[-1]
+    T = key.shape[-2]
     score = query @ key.transpose(-2, -1) / (dk ** 0.5)
-    masked_score = score + attention_mask
+    tri = torch.triu(torch.ones(T, T, device=query.device), diagonal=1).bool()
+    masked_score = score.masked_fill(tri, float('-inf'))
+    masked_score = masked_score + attention_mask
     weight = softmax(masked_score, dim=-1)
     weight_dropped = self.dropout(weight)
     attn_value = weight_dropped @ value
     attn_value = rearrange(attn_value, 'b h t d -> b t (h d)')
-
+    
     return attn_value
 
 
