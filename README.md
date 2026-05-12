@@ -13,6 +13,8 @@ source setup.sh
 
 This will automatically install dependencies and activate the environment.
 
+This repository includes a manual implementation of AdamW.
+
 ## About GPT-2
 GPT-2 is a decoder-only transformer model that use a sequence of previous tokens to predict the next token.
 
