@@ -1,6 +1,7 @@
 from typing import Callable, Iterable, Tuple
 import math
 
+from mpmath import eps
 import torch
 from torch.optim import Optimizer
 
@@ -61,7 +62,26 @@ class AdamW(Optimizer):
                 ###
                 ###       Refer to the default project handout for more details.
                 ### YOUR CODE HERE
-                raise NotImplementedError
+                if len(state) == 0:
+                    state["t"] = 0
+                    state["m"] = torch.zeros_like(p.data)
+                    state["v"] = torch.zeros_like(p.data)
 
+                t = state["t"]
+                m = state["m"]
+                v = state["v"]
+                
+                t += 1
+                beta1, beta2 = group["betas"]
+                weight_decay = group["weight_decay"]
+                m = m * beta1 + (1 - beta1) * grad
+                v = v * beta2 + (1 - beta2) * (grad ** 2)
+                alpha = alpha * ((1 - beta2 ** t) ** 0.5) / (1 - beta1 ** t)
+                p.data = p.data - alpha * m / (v ** 0.5 + group["eps"])
+                p.data = p.data * (1 - group["lr"] * weight_decay) 
+                
+                state["t"] = t
+                state["m"] = m
+                state["v"] = v
 
         return loss
