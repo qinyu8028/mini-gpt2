@@ -14,7 +14,7 @@ This will automatically install all dependencies and activate the environment.
 
 This repository also includes a manual implementation of AdamW.
 
-For the downstream task, the model performs sentiment classification on the Stanford Sentiment Treebank (SST) dataset.
+For the downstream tasks, the model performs sentiment classification on the Stanford Sentiment Treebank (SST) and CFIMDB datasets, cloze-style paraphrase detection on the Quora Question Pairs dataset, and Shakespearean sonnet generation.
 
 ## About GPT-2
 GPT-2 is a decoder-only transformer model that use a sequence of previous tokens to predict the next token.
