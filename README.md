@@ -4,16 +4,17 @@ This is an implementation of the final project for the Stanford CS224N class.
 
 ## Getting Started
 
-Follow `setup.sh` to properly setup a conda environment and install dependencies.
+Run the following command to set up the conda environment and install the required dependencies:
 
-Run:
 ```
 source setup.sh
 ```
 
-This will automatically install dependencies and activate the environment.
+This will automatically install all dependencies and activate the environment.
 
-This repository includes a manual implementation of AdamW.
+This repository also includes a manual implementation of AdamW.
+
+For the downstream task, the model performs sentiment classification on the Stanford Sentiment Treebank (SST) dataset.
 
 ## About GPT-2
 GPT-2 is a decoder-only transformer model that use a sequence of previous tokens to predict the next token.
