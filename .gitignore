@@ -3,5 +3,10 @@
 *.pyc
 *.pt
 *.pkl
+*.pdf
 .idea/
 out/
+sanity_check.py
+optimizer_test.py
+prepare_submit.py
+predictions/
