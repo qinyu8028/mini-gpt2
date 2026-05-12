@@ -40,8 +40,15 @@ class GPT2SentimentClassifier(torch.nn.Module):
   Thus, your forward() should return one logit for each of the 5 classes.
   '''
 
+
+  # config = {'hidden_dropout_prob': args.hidden_dropout_prob,
+  #           'num_labels': num_labels,
+  #           'hidden_size': 768,
+  #           'data_dir': '.',
+  #           'fine_tune_mode': args.fine_tune_mode}
+
   def __init__(self, config):
-    super(GPT2SentimentClassifier, self).__init__()
+    super().__init__()
     self.num_labels = config.num_labels
     self.gpt = GPT2Model.from_pretrained()
 
@@ -55,7 +62,8 @@ class GPT2SentimentClassifier(torch.nn.Module):
 
     ### TODO: Create any instance variables you need to classify the sentiment of BERT embeddings.
     ### YOUR CODE HERE
-    raise NotImplementedError
+    self.dropout_layer = torch.nn.Dropout(config.hidden_dropout_prob)
+    self.fc = torch.nn.Linear(config.hidden_size, self.num_labels)
 
 
   def forward(self, input_ids, attention_mask):
@@ -65,7 +73,13 @@ class GPT2SentimentClassifier(torch.nn.Module):
     ###       HINT: You should consider what is an appropriate return value given that
     ###       the training loop currently uses F.cross_entropy as the loss function.
     ### YOUR CODE HERE
-    raise NotImplementedError
+    
+    out = self.gpt(input_ids, attention_mask)  # return: {'last_hidden_state': sequence_output, 'last_token': last_token}
+    last_token = out['last_token']
+    hidden_state_dropped = self.dropout_layer(last_token)
+    logits = self.fc(hidden_state_dropped)
+    
+    return logits
 
 
 
