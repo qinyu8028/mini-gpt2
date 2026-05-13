@@ -1,6 +1,4 @@
 '''
-Sonnet generation starter code.
-
 Running:
   `python sonnet_generation.py --use_gpu`
 '''
@@ -9,6 +7,7 @@ import argparse
 import random
 import torch
 
+import os
 import numpy as np
 import torch.nn.functional as F
 
@@ -40,7 +39,7 @@ def seed_everything(seed=11711):
 
 
 class SonnetGPT(nn.Module):
-  """Your GPT-2 Model designed for paraphrase detection."""
+  """Your GPT-2 Model designed for sonnet generation."""
 
   def __init__(self, args):
     super().__init__()
@@ -48,7 +47,7 @@ class SonnetGPT(nn.Module):
     self.tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
     self.tokenizer.pad_token = self.tokenizer.eos_token
 
-    # By default, fine-tune the full model. TODO: this is maybe not idea.
+    # By default, fine-tune the full model. However, this is maybe not ideal.
     for param in self.gpt.parameters():
       param.requires_grad = True
 
@@ -59,7 +58,11 @@ class SonnetGPT(nn.Module):
     not just the distribution over next tokens for the last token!
     """
     ### YOUR CODE HERE
-    raise NotImplementedError
+    gpt_out = self.gpt(input_ids, attention_mask)   # return {'last_hidden_state': sequence_output, 'last_token': last_token}
+    last_hidden_state = gpt_out["last_hidden_state"]
+    out_token = self.gpt.hidden_state_to_token(last_hidden_state)
+    
+    return out_token
 
 
   def get_device(self):
@@ -131,6 +134,8 @@ def save_model(model, optimizer, args, filepath):
 def train(args):
   """Train GPT-2 for paraphrase detection on the Quora dataset."""
   device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
+  os.makedirs('checkpoints', exist_ok=True)
+  os.makedirs('predictions', exist_ok=True)
   # Create the data and its corresponding datasets and dataloader.
   sonnet_dataset = SonnetsDataset(args.sonnet_path)
   sonnet_dataloader = DataLoader(sonnet_dataset, shuffle=True, batch_size=args.batch_size,
@@ -173,20 +178,22 @@ def train(args):
     train_loss = train_loss / num_batches
     print(f"Epoch {epoch}: train loss :: {train_loss :.3f}.")
     print('Generating several output sonnets...')
+    print('=======================================================================================')
     model.eval()
     for batch in held_out_sonnet_dataset:
       encoding = model.tokenizer(batch[1], return_tensors='pt', padding=True, truncation=True).to(device)
       output = model.generate(encoding['input_ids'], temperature=args.temperature, top_p=args.top_p)
       print(f'{batch[1]}{output[1]}\n\n')
+      print('----------------------------------------------------------------------------------------')
 
     # TODO: consider a stopping condition to prevent overfitting on the small dataset of sonnets.
-    save_model(model, optimizer, args, f'{epoch}_{args.filepath}')
+    save_model(model, optimizer, args, f'checkpoints/{epoch}_{args.epochs}-{args.lr}-sonnet.pt')
 
 
 @torch.no_grad()
 def generate_submission_sonnets(args):
   device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
-  saved = torch.load(f'{args.epochs-1}_{args.filepath}', weights_only=False)
+  saved = torch.load(f'checkpoints/{args.epochs-1}_{args.epochs}-{args.lr}-sonnet.pt', weights_only=False)
 
   model = SonnetGPT(saved['args'])
   model.load_state_dict(saved['model'])
@@ -260,7 +267,7 @@ def add_arguments(args):
 
 if __name__ == "__main__":
   args = get_args()
-  args.filepath = f'{args.epochs}-{args.lr}-sonnet.pt'  # Save path.
+  args.filepath = f'checkpoints/{args.epochs}-{args.lr}-sonnet.pt'  # Save path.
   seed_everything(args.seed)  # Fix the seed for reproducibility.
   train(args)
   generate_submission_sonnets(args)

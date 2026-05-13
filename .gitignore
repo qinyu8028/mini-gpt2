@@ -11,5 +11,7 @@ optimizer_test.py
 prepare_submit.py
 optimizer_test.npy
 predictions/
+checkpoints/
+log/
 *.log
 *_log.txt

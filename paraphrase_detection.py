@@ -8,6 +8,7 @@ import argparse
 import random
 import torch
 
+import os
 import numpy as np
 import torch.nn.functional as F
 
@@ -90,6 +91,8 @@ def save_model(model, optimizer, args, filepath):
 def train(args):
   """Train GPT-2 for paraphrase detection on the Quora dataset."""
   device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
+  os.makedirs('checkpoints', exist_ok=True)
+  os.makedirs('predictions', exist_ok=True)
   # Create the data and its corresponding datasets and dataloader.
   para_train_data = load_paraphrase_data(args.para_train)
   para_dev_data = load_paraphrase_data(args.para_dev)
@@ -226,7 +229,7 @@ def add_arguments(args):
 
 if __name__ == "__main__":
   args = get_args()
-  args.filepath = f'{args.epochs}-{args.lr}-paraphrase.pt'  # Save path.
+  args.filepath = f'checkpoints/{args.epochs}-{args.lr}-paraphrase.pt'  # Save path.
   seed_everything(args.seed)  # Fix the seed for reproducibility.
   train(args)
   test(args)
