@@ -6,6 +6,7 @@ trains and evaluates your ParaphraseGPT model.
 
 import argparse
 import random
+from tkinter import NO
 import torch
 
 import os
@@ -23,6 +24,7 @@ from datasets import (
 )
 from evaluation import model_eval_paraphrase, model_test_paraphrase
 from models.gpt2 import GPT2Model
+from modules.attention import LoRA
 
 from optimizer import AdamW
 
@@ -40,38 +42,36 @@ def seed_everything(seed=11711):
 
 
 class ParaphraseGPT(nn.Module):
-  """Your GPT-2 Model designed for paraphrase detection."""
-
   def __init__(self, args):
     super().__init__()
-    self.gpt = GPT2Model.from_pretrained(model=args.model_size, d=args.d, l=args.l, num_heads=args.num_heads)
+    self.gpt = GPT2Model.from_pretrained(model=args.model_size, d=args.d, l=args.l, num_heads=args.num_heads, 
+                                         use_lora=args.use_lora, r=args.r, alpha=args.alpha)
     self.paraphrase_detection_head = nn.Linear(args.d, 2)  # Paraphrase detection has two outputs: 1 (yes) or 0 (no).
 
     # By default, fine-tune the full model.
-    for param in self.gpt.parameters():
-      param.requires_grad = True
+    if args.use_lora:
+      for param in self.gpt.parameters():
+        param.requires_grad = False
+      
+      for module in self.gpt.modules():
+        if isinstance(module, LoRA):
+          for param in module.parameters():
+            param.requires_grad = True
+
+    else:
+      for param in self.gpt.parameters():
+        param.requires_grad = True
 
   def forward(self, input_ids, attention_mask):
     """
-    TODO: Predict the label of the token using the paraphrase_detection_head Linear layer.
-
-    We structure the input as:
-
+    structure the input as:
       'Is "{s1}" a paraphrase of "{s2}"? Answer "yes" or "no": '
-
-    So you want to find the prediction for the next token at the end of this sentence. Optimistically, it will be the
-    token "yes" (byte pair encoding index of 8505) for examples that are paraphrases or "no" (byte pair encoding index
-     of 3919) for examples that are not paraphrases.
     """
-
-    'Takes a batch of sentences and produces embeddings for them.'
-    ### YOUR CODE HERE
     gpt_out = self.gpt(input_ids, attention_mask) # return {'last_hidden_state': sequence_output, 'last_token': last_token}
     last_token = gpt_out["last_token"]
     ans = self.paraphrase_detection_head(last_token)
 
     return ans
-
 
 
 def save_model(model, optimizer, args, filepath):
@@ -83,6 +83,10 @@ def save_model(model, optimizer, args, filepath):
     'numpy_rng': np.random.get_state(),
     'torch_rng': torch.random.get_rng_state(),
   }
+  if args.use_lora:
+    lora_state = {k: v for k, v in model.state_dict().items()
+                  if 'lora' in k or 'paraphrase_detection_head' in k}
+    save_info['model'] = lora_state
 
   torch.save(save_info, filepath)
   print(f"save the model to {filepath}")
@@ -154,7 +158,7 @@ def test(args):
   saved = torch.load(args.filepath)
 
   model = ParaphraseGPT(saved['args'])
-  model.load_state_dict(saved['model'])
+  model.load_state_dict(saved['model'], strict=False if args.use_lora else True)
   model = model.to(device)
   model.eval()
   print(f"Loaded model to test from {args.filepath}")
@@ -204,6 +208,11 @@ def get_args():
                       help="The model size as specified on hugging face. DO NOT use the xl model.",
                       choices=['gpt2', 'gpt2-medium', 'gpt2-large'], default='gpt2')
 
+  parser.add_argument("--use_lora", action='store_true', default=False)
+  parser.add_argument("--r", help='r for LoRA', type=int, default=8)
+  parser.add_argument("--alpha", type=float, 
+                      help='alpha for LoRA, recommend to initialize α/r = 1 and finetune r', default=8)
+
   args = parser.parse_args()
   return args
 
@@ -229,7 +238,10 @@ def add_arguments(args):
 
 if __name__ == "__main__":
   args = get_args()
-  args.filepath = f'checkpoints/{args.epochs}-{args.lr}-paraphrase.pt'  # Save path.
+  if args.use_lora:
+    args.filepath = f'checkpoints/{args.epochs}-{args.lr}-paraphrase-lora-r{args.r}.pt'
+  else:
+    args.filepath = f'checkpoints/{args.epochs}-{args.lr}-paraphrase.pt'  # Save path.
   seed_everything(args.seed)  # Fix the seed for reproducibility.
   train(args)
   test(args)
