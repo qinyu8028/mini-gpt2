@@ -9,6 +9,7 @@ out/
 sanity_check.py
 optimizer_test.py
 prepare_submit.py
+optimizer_test.npy
 predictions/
 *.log
 *_log.txt
