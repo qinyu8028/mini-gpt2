@@ -3,8 +3,6 @@ Sonnet generation starter code.
 
 Running:
   `python sonnet_generation.py --use_gpu`
-
-trains your SonnetGPT model and writes the required submission files.
 '''
 
 import argparse

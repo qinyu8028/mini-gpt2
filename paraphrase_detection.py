@@ -1,14 +1,7 @@
 '''
-Paraphrase detection for GPT starter code.
-
-Consider:
- - ParaphraseGPT: Your implementation of the GPT-2 classification model.
- - train: Training procedure for ParaphraseGPT on the Quora paraphrase detection dataset.
- - test: Test procedure. This function generates the required files for your submission.
-
 Running:
   `python paraphrase_detection.py --use_gpu`
-trains and evaluates your ParaphraseGPT model and writes the required submission files.
+trains and evaluates your ParaphraseGPT model.
 '''
 
 import argparse
