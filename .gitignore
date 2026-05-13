@@ -10,3 +10,5 @@ sanity_check.py
 optimizer_test.py
 prepare_submit.py
 predictions/
+*.log
+*_log.txt
