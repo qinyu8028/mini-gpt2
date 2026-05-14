@@ -21,6 +21,7 @@ from datasets import (
   SonnetsDataset,
 )
 from models.gpt2 import GPT2Model
+from modules.attention import LoRA
 
 from optimizer import AdamW
 
@@ -39,31 +40,36 @@ def seed_everything(seed=11711):
 
 
 class SonnetGPT(nn.Module):
-  """Your GPT-2 Model designed for sonnet generation."""
-
   def __init__(self, args):
     super().__init__()
-    self.gpt = GPT2Model.from_pretrained(model=args.model_size, d=args.d, l=args.l, num_heads=args.num_heads)
+    self.gpt = GPT2Model.from_pretrained(model=args.model_size, d=args.d, l=args.l, num_heads=args.num_heads, 
+                                         use_lora=args.use_lora, r=args.r, alpha=args.alpha)
     self.tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
     self.tokenizer.pad_token = self.tokenizer.eos_token
 
-    # By default, fine-tune the full model. However, this is maybe not ideal.
-    for param in self.gpt.parameters():
-      param.requires_grad = True
+    # By default, fine-tune the full model.
+    if args.use_lora:
+      for param in self.gpt.parameters():
+        param.requires_grad = False
+      
+      for module in self.gpt.modules():
+        if isinstance(module, LoRA):
+          for param in module.parameters():
+            param.requires_grad = True
+
+    else:
+      for param in self.gpt.parameters():
+        param.requires_grad = True
 
   def forward(self, input_ids, attention_mask):
     """
-    This is similar to the forward for ParaphraseGPT, but we now want to produce a logit for each token in our sequence;
-    not just the last token! This will allow our model to learn the natural language distribution that composes sonnets,
-    not just the distribution over next tokens for the last token!
+    Now produce a logit for each token in our sequence; not just the last token.
     """
-    ### YOUR CODE HERE
     gpt_out = self.gpt(input_ids, attention_mask)   # return {'last_hidden_state': sequence_output, 'last_token': last_token}
     last_hidden_state = gpt_out["last_hidden_state"]
     out_token = self.gpt.hidden_state_to_token(last_hidden_state)
     
     return out_token
-
 
   def get_device(self):
     for param in self.gpt.parameters():
@@ -126,6 +132,9 @@ def save_model(model, optimizer, args, filepath):
     'numpy_rng': np.random.get_state(),
     'torch_rng': torch.random.get_rng_state(),
   }
+  if args.use_lora:
+    lora_state = {k: v for k, v in model.state_dict().items() if 'lora' in k}
+    save_info['model'] = lora_state
 
   torch.save(save_info, filepath)
   print(f"save the model to {filepath}")
@@ -187,20 +196,26 @@ def train(args):
       print('----------------------------------------------------------------------------------------')
 
     # TODO: consider a stopping condition to prevent overfitting on the small dataset of sonnets.
-    save_model(model, optimizer, args, f'checkpoints/{epoch}_{args.epochs}-{args.lr}-sonnet.pt')
+    if args.use_lora:
+      save_model(model, optimizer, args, f'checkpoints/{epoch}_{args.epochs}-{args.lr}-sonnet-lora-r{args.r}.pt')
+    else:
+      save_model(model, optimizer, args, f'checkpoints/{epoch}_{args.epochs}-{args.lr}-sonnet.pt')  # Save path.
 
 
 @torch.no_grad()
 def generate_submission_sonnets(args):
   device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
-  saved = torch.load(f'checkpoints/{args.epochs-1}_{args.epochs}-{args.lr}-sonnet.pt', weights_only=False)
+  if args.use_lora:
+    saved = torch.load(f'checkpoints/{args.epochs-1}_{args.epochs}-{args.lr}-sonnet-lora-r{args.r}.pt', weights_only=False)
+  else:
+    saved = torch.load(f'checkpoints/{args.epochs-1}_{args.epochs}-{args.lr}-sonnet.pt', weights_only=False)
 
   model = SonnetGPT(saved['args'])
-  model.load_state_dict(saved['model'])
+  model.load_state_dict(saved['model'], strict=False if args.use_lora else True)
   model = model.to(device)
   model.eval()
 
-  # Create the held-out dataset: these only have the first 3 lines. Your job is to fill in the rest!
+  # Create the held-out dataset: these only have the first 3 lines
   held_out_sonnet_dataset = SonnetsDataset(args.held_out_sonnet_path)
 
   generated_sonnets = []
@@ -242,6 +257,11 @@ def get_args():
   parser.add_argument("--model_size", type=str, help="The model size as specified on hugging face.",
                       choices=['gpt2', 'gpt2-medium', 'gpt2-large', 'gpt2-xl'], default='gpt2')
 
+  parser.add_argument("--use_lora", action='store_true', default=False)
+  parser.add_argument("--r", help='r for LoRA', type=int, default=8)
+  parser.add_argument("--alpha", type=float, 
+                      help='alpha for LoRA, recommend to initialize α/r = 1 and finetune r', default=8)
+
   args = parser.parse_args()
   return args
 
@@ -267,7 +287,10 @@ def add_arguments(args):
 
 if __name__ == "__main__":
   args = get_args()
-  args.filepath = f'checkpoints/{args.epochs}-{args.lr}-sonnet.pt'  # Save path.
+  if args.use_lora:
+    args.filepath = f'checkpoints/{args.epochs}-{args.lr}-sonnet-lora-r{args.r}.pt'
+  else:
+    args.filepath = f'checkpoints/{args.epochs}-{args.lr}-sonnet.pt'  # Save path.
   seed_everything(args.seed)  # Fix the seed for reproducibility.
   train(args)
   generate_submission_sonnets(args)
