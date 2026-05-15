@@ -1,11 +1,3 @@
-# !/usr/bin/env python3
-
-
-"""
-This file contains our Dataset class for Quora paraphrase detection. You may want to modify this file to train on
-additional sources of data, or if you change how the Quora dataset is processed (i.e. data augmentation, etc.).
-"""
-
 import csv
 
 import re
@@ -145,6 +137,50 @@ class SonnetsDataset(Dataset):
 
   def __getitem__(self, idx):
     return (idx, self.sonnets[idx])
+
+  def collate_fn(self, all_data):
+    idx = [example[0] for example in all_data]
+    sonnets = [example[1] for example in all_data]
+
+    encoding = self.tokenizer(sonnets, return_tensors='pt', padding=True, truncation=True)
+    token_ids = torch.LongTensor(encoding['input_ids'])
+    attention_mask = torch.LongTensor(encoding['attention_mask'])
+
+    batched_data = {
+      'token_ids': token_ids,
+      'attention_mask': attention_mask,
+      'sent_ids': idx
+    }
+
+    return batched_data
+
+
+class HeldOutSonnetsDataset(Dataset):
+  def __init__(self, file_path):
+    self.tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
+
+    self.tokenizer.pad_token = self.tokenizer.eos_token
+    self.held_out_sonnets = self._load_held_out_sonnets(file_path)
+
+  def _load_held_out_sonnets(self, file_path):
+    """Reads the file and extracts individual held out sonnets(first 3 lines)"""
+    with open(file_path, 'r', encoding='utf-8') as f:
+      text = f.read()
+
+    # Split sonnets based on numbering pattern (e.g., "\n\n1\n\n")
+    sonnets = re.split(r'\n\s*\d+\s*\n', text)[1:]  # Remove header text
+    # Strip leading/trailing spaces
+    clean_sonnets = [s.strip() for s in sonnets]
+    # extract only the first three lines
+    held_out_sonnets = [sonnet.split('\n')[:3] for sonnet in clean_sonnets]
+
+    return held_out_sonnets
+
+  def __len__(self):
+    return len(self.held_out_sonnets)
+
+  def __getitem__(self, idx):
+    return (idx, self.held_out_sonnets[idx])
 
   def collate_fn(self, all_data):
     idx = [example[0] for example in all_data]

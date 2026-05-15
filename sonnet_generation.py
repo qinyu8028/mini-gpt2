@@ -150,8 +150,8 @@ def train(args):
   sonnet_dataloader = DataLoader(sonnet_dataset, shuffle=True, batch_size=args.batch_size,
                                  collate_fn=sonnet_dataset.collate_fn)
 
-  # Create the held-out dataset: these only have the first 3 lines. Your job is to fill in the rest!
-  held_out_sonnet_dataset = SonnetsDataset(args.held_out_sonnet_path)
+  # # Create the held-out dataset: these only have the first 3 lines. Your job is to fill in the rest!
+  # held_out_sonnet_dataset = SonnetsDataset(args.held_out_sonnet_path)
 
   args = add_arguments(args)
   model = SonnetGPT(args)
@@ -159,6 +159,7 @@ def train(args):
 
   lr = args.lr
   optimizer = AdamW(model.parameters(), lr=lr)
+  best_loss = float('inf')
 
   # Run for the specified number of epochs.
   for epoch in range(args.epochs):
@@ -186,29 +187,28 @@ def train(args):
 
     train_loss = train_loss / num_batches
     print(f"Epoch {epoch}: train loss :: {train_loss :.3f}.")
-    print('Generating several output sonnets...')
-    print('=======================================================================================')
-    model.eval()
-    for batch in held_out_sonnet_dataset:
-      encoding = model.tokenizer(batch[1], return_tensors='pt', padding=True, truncation=True).to(device)
-      output = model.generate(encoding['input_ids'], temperature=args.temperature, top_p=args.top_p)
-      print(f'{batch[1]}{output[1]}\n\n')
-      print('----------------------------------------------------------------------------------------')
+
+    # print('Generating several output sonnets...')
+    # print('=======================================================================================')
+    # model.eval()
+    # for batch in held_out_sonnet_dataset:
+    #   encoding = model.tokenizer(batch[1], return_tensors='pt', padding=True, truncation=True).to(device)
+    #   output = model.generate(encoding['input_ids'], temperature=args.temperature, top_p=args.top_p)
+    #   print(f'{batch[1]}{output[1]}\n\n')
+    #   print('----------------------------------------------------------------------------------------')
 
     # TODO: consider a stopping condition to prevent overfitting on the small dataset of sonnets.
-    if args.use_lora:
-      save_model(model, optimizer, args, f'checkpoints/{epoch}_{args.epochs}-{args.lr}-sonnet-lora-r{args.r}.pt')
-    else:
-      save_model(model, optimizer, args, f'checkpoints/{epoch}_{args.epochs}-{args.lr}-sonnet.pt')  # Save path.
+    
+    if train_loss < best_loss:
+      best_loss = train_loss  # Save best model
+      save_model(model, optimizer, args, args.save_path)  # Save path.
+      print(f"Best model saved. Best loss:{best_loss}")
 
 
 @torch.no_grad()
 def generate_submission_sonnets(args):
   device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
-  if args.use_lora:
-    saved = torch.load(f'checkpoints/{args.epochs-1}_{args.epochs}-{args.lr}-sonnet-lora-r{args.r}.pt', weights_only=False)
-  else:
-    saved = torch.load(f'checkpoints/{args.epochs-1}_{args.epochs}-{args.lr}-sonnet.pt', weights_only=False)
+  saved = torch.load(args.save_path, weights_only=False)
 
   model = SonnetGPT(saved['args'])
   model.load_state_dict(saved['model'], strict=False if args.use_lora else True)
@@ -227,7 +227,7 @@ def generate_submission_sonnets(args):
     full_sonnet = f'{decoded_output}\n\n'
     generated_sonnets.append((sonnet_id, full_sonnet))
 
-    print(f'{decoded_output}\n\n')
+    # print(f'{decoded_output}\n\n')
 
   with open(args.sonnet_out, "w+") as f:
     f.write(f"--Generated Sonnets-- \n\n")
@@ -242,6 +242,7 @@ def get_args():
   parser.add_argument("--sonnet_path", type=str, default="data/sonnets.txt")
   parser.add_argument("--held_out_sonnet_path", type=str, default="data/sonnets_held_out.txt")
   parser.add_argument("--sonnet_out", type=str, default="predictions/generated_sonnets.txt")
+  parser.add_argument("--save_path", type=str, default="checkpoints/best_sonnet.pt")
 
   parser.add_argument("--seed", type=int, default=11711)
   parser.add_argument("--epochs", type=int, default=10)
@@ -287,10 +288,8 @@ def add_arguments(args):
 
 if __name__ == "__main__":
   args = get_args()
-  if args.use_lora:
-    args.filepath = f'checkpoints/{args.epochs}-{args.lr}-sonnet-lora-r{args.r}.pt'
-  else:
-    args.filepath = f'checkpoints/{args.epochs}-{args.lr}-sonnet.pt'  # Save path.
   seed_everything(args.seed)  # Fix the seed for reproducibility.
+  if args.use_lora:
+    args.save_path = args.save_path.replace('.pt', f'-lora-r{args.r}.pt')  # Save path.
   train(args)
   generate_submission_sonnets(args)
