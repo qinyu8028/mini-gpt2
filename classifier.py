@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 '''
 Trains and evaluates GPT2SentimentClassifier on SST and CFIMDB
 '''
@@ -36,17 +34,8 @@ def seed_everything(seed=11711):
 class GPT2SentimentClassifier(torch.nn.Module):
   '''
   This module performs sentiment classification using GPT2 in a cloze-style (fill-in-the-blank) task.
-
   In the SST dataset, there are 5 sentiment categories (from 0 - "negative" to 4 - "positive").
-  Thus, your forward() should return one logit for each of the 5 classes.
   '''
-
-
-  # config = {'hidden_dropout_prob': args.hidden_dropout_prob,
-  #           'num_labels': num_labels,
-  #           'hidden_size': 768,
-  #           'data_dir': '.',
-  #           'fine_tune_mode': args.fine_tune_mode}
 
   def __init__(self, config):
     super().__init__()
@@ -61,19 +50,11 @@ class GPT2SentimentClassifier(torch.nn.Module):
       elif config.fine_tune_mode == 'full-model':
         param.requires_grad = True
 
-    ### TODO: Create any instance variables you need to classify the sentiment of BERT embeddings.
-    ### YOUR CODE HERE
     self.dropout_layer = torch.nn.Dropout(config.hidden_dropout_prob)
     self.fc = torch.nn.Linear(config.hidden_size, self.num_labels)
 
-
   def forward(self, input_ids, attention_mask):
     '''Takes a batch of sentences and returns logits for sentiment classes'''
-
-    ### TODO: The final GPT contextualized embedding is the hidden state of the last token.
-    ###       HINT: You should consider what is an appropriate return value given that
-    ###       the training loop currently uses F.cross_entropy as the loss function.
-    ### YOUR CODE HERE
     
     out = self.gpt(input_ids, attention_mask)  # return: {'last_hidden_state': sequence_output, 'last_token': last_token}
     last_token = out['last_token']
@@ -81,7 +62,6 @@ class GPT2SentimentClassifier(torch.nn.Module):
     logits = self.fc(hidden_state_dropped)
     
     return logits
-
 
 
 class SentimentDataset(Dataset):
