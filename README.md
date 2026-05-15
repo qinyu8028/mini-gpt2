@@ -1,20 +1,21 @@
 # mini-gpt2
 
-This is an implementation of the final project for the Stanford CS224N class. 
-
-## Getting Started
-
-Run the following command to set up the conda environment and install the required dependencies:
-
-```
-source setup.sh
-```
-
-This will automatically install all dependencies and activate the environment.
+This is an implementation of the final project(build GPT-2) for the Stanford CS224N class. 
 
 This repository also includes a manual implementation of AdamW.
 
 For the downstream tasks, the model performs sentiment classification on the Stanford Sentiment Treebank (SST) and CFIMDB datasets, cloze-style paraphrase detection on the Quora Question Pairs dataset, and Shakespearean sonnet generation.
+
+## Getting Started
+
+Run the following command to install the required dependencies and activate the conda environment:
+
+```
+conda env create -f env.yml
+conda activate mini-gpt2
+```
+
+You can now run the code in this environment.
 
 ## About GPT-2
 GPT-2 is a decoder-only transformer model that use a sequence of previous tokens to predict the next token.
