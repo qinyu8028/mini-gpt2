@@ -4,14 +4,14 @@ A from-scratch GPT-2 implementation for the Stanford CS224N final project, cover
 
 Additionally, this repo implements **LoRA** for parameter-efficient fine-tuning and **DPO** (Direct Preference Optimization) for improving sonnet generation quality.
 
-## Getting Started
+## 🚀 Getting Started
 
 ```bash
 conda env create -f env.yml
 conda activate mini-gpt2
 ```
 
-## Model Architecture
+## 🏗️ Model Architecture
 
 GPT-2 is a decoder-only transformer. Our implementation (`gpt2` size) consists of:
 
@@ -26,7 +26,7 @@ GPT-2 is a decoder-only transformer. Our implementation (`gpt2` size) consists o
   <img src="images/transformer.png" width="350">
 </p>
 
-## Downstream Tasks
+## 📝 Downstream Tasks
 
 ### Sentiment Classification
 
@@ -52,7 +52,7 @@ Fine-tune GPT-2 on 143 Shakespeare sonnets with causal language modeling.
 python sonnet_generation.py --use_gpu --epochs 60 --lr 1e-5
 ```
 
-## Extensions
+## 🔧 Extensions
 
 ### LoRA
 
@@ -80,7 +80,7 @@ python sonnet_generation_DPO.py --use_gpu \
   --lr 1e-6 --beta 0.1 --epochs 10
 ```
 
-## Results (Sonnet Generation)
+## 📊 Results (Sonnet Generation)
 
 | Method | Config | Dev chrF |
 |--------|--------|----------|
