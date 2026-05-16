@@ -33,7 +33,7 @@ GPT-2 is a decoder-only transformer. Our implementation (`gpt2` size) consists o
 Fine-tune GPT-2 on SST and CFIMDB datasets using the last token representation as the sentence embedding.
 
 ```bash
-python classifier.py --use_gpu --epochs 5 --lr 1e-5
+python classifier.py --use_gpu
 ```
 
 ### Paraphrase Detection
@@ -41,15 +41,15 @@ python classifier.py --use_gpu --epochs 5 --lr 1e-5
 Cloze-style paraphrase detection on Quora Question Pairs.
 
 ```bash
-python paraphrase_detection.py --use_gpu --epochs 1 --lr 1e-5 --batch_size 16
+python paraphrase_detection.py --use_gpu
 ```
 
 ### Sonnet Generation (SFT)
 
-Fine-tune GPT-2 on 143 Shakespeare sonnets with causal language modeling.
+Fine-tune GPT-2 on 143 Shakespeare sonnets with causal language modeling. We used 60 epochs for training.
 
 ```bash
-python sonnet_generation.py --use_gpu --epochs 60 --lr 1e-5
+python sonnet_generation.py --use_gpu
 ```
 
 ## 🔧 Extensions
@@ -59,8 +59,8 @@ python sonnet_generation.py --use_gpu --epochs 60 --lr 1e-5
 Low-Rank Adaptation: freeze pretrained weights, inject trainable low-rank matrices (W_a, W_b) into attention layers. Only ~0.3% of parameters are trained.
 
 ```bash
-python sonnet_generation.py --use_gpu --epochs 20 --lr 1e-5 --use_lora --r 8 --alpha 8
-python paraphrase_detection.py --use_gpu --epochs 1 --lr 1e-5 --use_lora --r 8 --alpha 8
+python sonnet_generation.py --use_gpu --use_lora
+python paraphrase_detection.py --use_gpu --use_lora
 ```
 
 ### DPO (Direct Preference Optimization)
@@ -69,15 +69,12 @@ Align the model toward preferred outputs without a reward model. Uses pairs of (
 
 **Step 1**: Generate negative samples from the SFT model:
 ```bash
-python sonnet_generation_negative.py --use_gpu --save_path checkpoints/best_sonnet_full_e60.pt
+python sonnet_generation_negative.py --use_gpu
 ```
 
-**Step 2**: DPO training:
+**Step 2**: DPO training (we used lr=1e-6, beta=0.1):
 ```bash
-python sonnet_generation_DPO.py --use_gpu \
-  --save_path checkpoints/best_sonnet_full_e60.pt \
-  --dpo_path checkpoints/dpo/dpo_best.pt \
-  --lr 1e-6 --beta 0.1 --epochs 10
+python sonnet_generation_DPO.py --use_gpu --lr 1e-6
 ```
 
 ## 📊 Results (Sonnet Generation)
