@@ -28,22 +28,22 @@ def generate_negative_samples(args):
   # Create the held-out dataset: these only have the first 3 lines
   held_out_sonnet_dataset = HeldOutSonnetsDataset(args.sonnet_path)
   
-  os.makedirs(os.path.dirname(args.sonnet_out), exist_ok=True)
-  with open(args.sonnet_out, "w") as f:
+  os.makedirs(os.path.dirname(args.neagtive_out), exist_ok=True)
+  with open(args.neagtive_out, "w") as f:
     f.write(f"---Generated Sonnets--- \n\n")
 
   for item in held_out_sonnet_dataset:
     sonnet_id = item[0]
     prompt = '\n'.join(item[1])
     encoding = model.tokenizer(prompt, return_tensors='pt', padding=False, truncation=True).to(device)
-    output = model.generate(encoding['input_ids'], temperature=args.temperature, top_p=args.top_p)[0][0]
+    output = model.generate(encoding['input_ids'], temperature=args.temperature, top_p=args.top_p, repetition_penalty=args.repetition_penalty)[0][0]
     decoded_output = model.tokenizer.decode(output)
     full_sonnet = f'{decoded_output}\n\n'
     generated_sonnets = [sonnet_id, full_sonnet]
 
     # print(f'{decoded_output}\n\n')
   
-    with open(args.sonnet_out, "a") as f:
+    with open(args.neagtive_out, "a") as f:
       f.write(f"\n{generated_sonnets[0]+1}\n")
       f.write(generated_sonnets[1])
 
@@ -52,7 +52,7 @@ def get_args():
   parser = argparse.ArgumentParser()
 
   parser.add_argument("--sonnet_path", type=str, default="data/sonnets.txt")
-  parser.add_argument("--sonnet_out", type=str, default="predictions/negative_sonnets.txt")
+  parser.add_argument("--neagtive_out", type=str, default="predictions/negative_sonnets.txt")
   parser.add_argument("--save_path", type=str, default="checkpoints/best_sonnet.pt")
 
   parser.add_argument("--use_gpu", action='store_true')
@@ -61,6 +61,7 @@ def get_args():
   parser.add_argument("--temperature", type=float, help="softmax temperature.", default=1.2)
   parser.add_argument("--top_p", type=float, help="Cumulative probability distribution for nucleus sampling.",
                       default=0.9)
+  parser.add_argument("--repetition_penalty", type=float, default=1.0)
 
   parser.add_argument("--use_lora", action='store_true', default=False)
   parser.add_argument("--r", help='r for LoRA', type=int, default=8)

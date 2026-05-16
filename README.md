@@ -1,52 +1,96 @@
 # mini-gpt2
 
-This is an implementation of the final project(build GPT-2) for the Stanford CS224N class. 
+A from-scratch GPT-2 implementation for the Stanford CS224N final project, covering multi-head attention, transformer layers, and AdamW optimizer. The model is applied to sentiment classification (SST / CFIMDB), paraphrase detection (Quora), and Shakespearean sonnet generation.
 
-This repository also includes a manual implementation of AdamW.
-
-For the downstream tasks, the model performs sentiment classification on the Stanford Sentiment Treebank (SST) and CFIMDB datasets, cloze-style paraphrase detection on the Quora Question Pairs dataset, and Shakespearean sonnet generation.
+Additionally, this repo implements **LoRA** for parameter-efficient fine-tuning and **DPO** (Direct Preference Optimization) for improving sonnet generation quality.
 
 ## Getting Started
 
-Run the following command to install the required dependencies and activate the conda environment:
-
-```
+```bash
 conda env create -f env.yml
 conda activate mini-gpt2
 ```
 
-You can now run the code in this environment.
+## Model Architecture
 
-## About GPT-2
-GPT-2 is a decoder-only transformer model that use a sequence of previous tokens to predict the next token.
+GPT-2 is a decoder-only transformer. Our implementation (`gpt2` size) consists of:
 
-### Tokenizatoin
-The GPT-2 model uses byte pair encoding (BPE) tokenization. You can play with this [visualization](https://platform.openai.com/tokenizer) by OpenAI, the BPE to
-tokenize sentences used in OpenAI’s latest models.
+- **Tokenizer**: Byte Pair Encoding (BPE), vocab size 50257
+- **Embeddings**: token embedding + learnable positional embedding, max sequence length 1024
+- **Transformer layers**: 12 layers, each with masked multi-head self-attention (12 heads), layer norm, and MLP (768 → 3072 → 768)
+- **Hidden dimension**: 768
+- **Dropout**: 0.1 (after attention, MLP, and embeddings)
+- **Output**: next-token prediction via language model head (tied with token embeddings)
 
-### Embedding Layer
-After tokenizing and converting each token to ids, GPT-2 subsequently utilizes a trainable embedding layer across each token. The input embeddings that are used in later portions are the sum of the token embeddings and the position embeddings.
-
-The learnable token embeddings map the individual input ids into vector representation for later use. The positional embeddings are utilized to encode the position of different words within the input. 
-
-### Transformer Layer
 <p align="center">
   <img src="images/transformer.png" width="350">
 </p>
 
-The mini-gpt2 makes use of 12 Decoder Transformer layers. These layers were defined initially in the paper Attention is All You Need. It is composed of masked multi-head attention, Resnets, MLP, and layernorm layers. 
+## Downstream Tasks
 
-GPT-2 applies dropout after each attention layer as well as after each MLP before the residual connection. GPT-2 also applies dropout to the sums of the embeddings and the positional encodings. It uses a setting of $p_\text{drop} = 0.1$.
+### Sentiment Classification
 
-### Output
-After going through the respective layers the outputs consist of:
+Fine-tune GPT-2 on SST and CFIMDB datasets using the last token representation as the sentence embedding.
 
-1. `last_hidden_state`: the contextualized embedding for each token of the sentence from the last layer
+```bash
+python classifier.py --use_gpu --epochs 5 --lr 1e-5
+```
 
-2. `last_token`: the last token embedding
+### Paraphrase Detection
+
+Cloze-style paraphrase detection on Quora Question Pairs.
+
+```bash
+python paraphrase_detection.py --use_gpu --epochs 1 --lr 1e-5 --batch_size 16
+```
+
+### Sonnet Generation (SFT)
+
+Fine-tune GPT-2 on 143 Shakespeare sonnets with causal language modeling.
+
+```bash
+python sonnet_generation.py --use_gpu --epochs 60 --lr 1e-5
+```
+
+## Extensions
+
+### LoRA
+
+Low-Rank Adaptation: freeze pretrained weights, inject trainable low-rank matrices (W_a, W_b) into attention layers. Only ~0.3% of parameters are trained.
+
+```bash
+python sonnet_generation.py --use_gpu --epochs 20 --lr 1e-5 --use_lora --r 8 --alpha 8
+python paraphrase_detection.py --use_gpu --epochs 1 --lr 1e-5 --use_lora --r 8 --alpha 8
+```
+
+### DPO (Direct Preference Optimization)
+
+Align the model toward preferred outputs without a reward model. Uses pairs of (chosen, rejected) completions to optimize a preference loss with a KL-divergence constraint from the reference model.
+
+**Step 1**: Generate negative samples from the SFT model:
+```bash
+python sonnet_generation_negative.py --use_gpu --save_path checkpoints/best_sonnet_full_e60.pt
+```
+
+**Step 2**: DPO training:
+```bash
+python sonnet_generation_DPO.py --use_gpu \
+  --save_path checkpoints/best_sonnet_full_e60.pt \
+  --dpo_path checkpoints/dpo/dpo_best.pt \
+  --lr 1e-6 --beta 0.1 --epochs 10
+```
+
+## Results (Sonnet Generation)
+
+| Method | Config | Dev chrF |
+|--------|--------|----------|
+| SFT (full-model) | 60 epochs | 40.34 |
+| DPO | beta=0.1, lr=1e-6, epoch 4 | 42.23 |
+
+DPO provides modest improvement over SFT. Note that chrF is not very sensitive to qualitative improvements in this task.
 
 ## Acknowledgement
 
-Based on starter code from [Stanford CS224N (Winter 2026) Default Final Project: Build GPT-2](https://github.com/stanfordnlp/cs224n_gpt).
+Based on starter code from [Stanford CS224N (Winter 2026) Default Final Project](https://github.com/stanfordnlp/cs224n_gpt).
 
 Parts of the code are from the [`transformers`](https://github.com/huggingface/transformers) library ([Apache License 2.0](./LICENSE)).

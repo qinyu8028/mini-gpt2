@@ -67,16 +67,16 @@ class SonnetGPT(nn.Module):
     """
     gpt_out = self.gpt(input_ids, attention_mask)   # return {'last_hidden_state': sequence_output, 'last_token': last_token}
     last_hidden_state = gpt_out["last_hidden_state"]
-    out_token = self.gpt.hidden_state_to_token(last_hidden_state)
+    out_token_logits = self.gpt.hidden_state_to_token(last_hidden_state) # return logits
     
-    return out_token
+    return out_token_logits
 
   def get_device(self):
     for param in self.gpt.parameters():
       return param.device
 
   @torch.no_grad()
-  def generate(self, encoding, temperature=0.7, top_p=0.9, max_length=128):
+  def generate(self, encoding, temperature=0.7, top_p=0.9, max_length=128, repetition_penalty=1.05, repetition_window=20):
     """
     Generates an original sonnet using top-p sampling and softmax temperature.
 
@@ -92,6 +92,8 @@ class SonnetGPT(nn.Module):
       # Forward pass to get logits
       logits_sequence = self.forward(token_ids, attention_mask)
       logits_last_token = logits_sequence[:, -1, :] / temperature  # Apply temperature scaling
+      recent_tokens = token_ids[0, -repetition_window:]
+      logits_last_token[0, recent_tokens] = logits_last_token[0, recent_tokens] / repetition_penalty
 
       # Convert logits to probabilities
       probs = torch.nn.functional.softmax(logits_last_token, dim=-1)
@@ -141,7 +143,6 @@ def save_model(model, optimizer, args, filepath):
 
 
 def train(args):
-  """Train GPT-2 for paraphrase detection on the Quora dataset."""
   device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
   os.makedirs('checkpoints', exist_ok=True)
   os.makedirs('predictions', exist_ok=True)
@@ -186,7 +187,7 @@ def train(args):
       num_batches += 1
 
     train_loss = train_loss / num_batches
-    print(f"Epoch {epoch}: train loss :: {train_loss :.3f}.")
+    print(f"Epoch {epoch}: train loss: {train_loss :.3f}.")
 
     # print('Generating several output sonnets...')
     # print('=======================================================================================')
@@ -202,7 +203,7 @@ def train(args):
     if train_loss < best_loss:
       best_loss = train_loss  # Save best model
       save_model(model, optimizer, args, args.save_path)  # Save path.
-      print(f"Best model saved. Best loss:{best_loss}")
+      print(f"Best model saved. Best loss: {best_loss: .3f}.")
 
 
 @torch.no_grad()
@@ -222,7 +223,11 @@ def generate_submission_sonnets(args):
   for batch in held_out_sonnet_dataset:
     sonnet_id = batch[0]
     encoding = model.tokenizer(batch[1], return_tensors='pt', padding=False, truncation=True).to(device)
-    output = model.generate(encoding['input_ids'], temperature=args.temperature, top_p=args.top_p)[0][0]
+    output = model.generate(encoding['input_ids'], 
+                            temperature=args.temperature, 
+                            top_p=args.top_p, 
+                            repetition_penalty=args.repetition_penalty,
+                            repetition_window=args.repetition_window)[0][0]
     decoded_output = model.tokenizer.decode(output)
     full_sonnet = f'{decoded_output}\n\n'
     generated_sonnets.append((sonnet_id, full_sonnet))
@@ -249,9 +254,11 @@ def get_args():
   parser.add_argument("--use_gpu", action='store_true')
 
   # Generation parameters.
-  parser.add_argument("--temperature", type=float, help="softmax temperature.", default=1.2)
+  parser.add_argument("--temperature", type=float, help="softmax temperature.", default=0.8)
   parser.add_argument("--top_p", type=float, help="Cumulative probability distribution for nucleus sampling.",
                       default=0.9)
+  parser.add_argument("--repetition_penalty", type=float, default=1.05)
+  parser.add_argument("--repetition_window", type=int, default=20)
 
   parser.add_argument("--batch_size", help='The training batch size.', type=int, default=8)
   parser.add_argument("--lr", type=float, help="learning rate", default=1e-5)
